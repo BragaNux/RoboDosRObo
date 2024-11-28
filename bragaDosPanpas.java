@@ -3,139 +3,104 @@ package BrayanMartins;
 import robocode.*;
 import java.awt.Color;
 
-//herança: BrayanMartins agora herda de AdvancedRobot para maior controle
-public class BrayanMartins extends AdvancedRobot {
-    private RobotStrategy strategy;
+public class BrayanMartins extends Robot {
+    boolean isCheiraParede = false; //é o CheiraParede
+    boolean isBlablade = false; //é o Blablade
 
-    // principal - comportamento do robo (responsabilidade unica - SRP)
+    //principal - comportamento do robo
     @Override
     public void run() {
-        setBodyColor(Color.black);
-        setGunColor(Color.red);
-        setRadarColor(Color.black);
+        setBodyColor(java.awt.Color.black);
+        setGunColor(java.awt.Color.red);
+        setRadarColor(java.awt.Color.black);
 
-        // define uma estrategia padrão
-        strategy = new AggressiveStrategy();
-
-        // loop
+        //loop
         while (true) {
-            // executa a estrategia atual
-            strategy.execute(this);
+            //muda com base na vida
+            if (getEnergy() > 50) {
+                //ta cheio de vida, bora agressivar
+                ahead(150); //avança mais pra pressão
+                turnGunRight(360); //procura inimigos
+                back(100); //recua pra enganar
+                turnGunRight(360); //procura dnv
+            } else {
+                //vida ta baixa, bora virar um ninja e sobreviver
+                turnRight(90); //movimento evasivo
+                ahead(100); //foge estrategicamente
+                turnGunRight(360); //ainda procura inimigos porque a vingança nunca é plena
+            }
         }
     }
 
-    // detecta outro robo (aberto/fechado - OCP)
+    //detecta outro robo
     @Override
     public void onScannedRobot(ScannedRobotEvent e) {
         double distancia = e.getDistance();
         double energiaInimigo = e.getEnergy();
 
-        // muda estratégia baseado no nome do oponente (Polimorfismo)
+        // Detecta se o robô inimigo é o CheiraParede
         if (e.getName().contains("Walls")) {
-            strategy = new CheiraParedeStrategy();
-        } else if (e.getName().contains("SpinBot")) {
-            strategy = new BlabladeStrategy();
-        } else {
-            strategy = new DefaultStrategy();
+            isCheiraParede = true;
         }
 
-        // estrategia atual
-        strategy.onScannedRobot(this, e, distancia, energiaInimigo);
+        // Detecta se o robô inimigo é o Blablade
+        if (e.getName().contains("SpinBot")) {
+            isBlablade = true;
+        }
+
+        if (isCheiraParede) {
+            // Estratégia especial contra CheiraParede
+            fire(3); // Força máxima porque ele só cheira parede mesmo
+            turnRight(90); // Sai do caminho do cheirador
+            ahead(200); // Ganha distância porque parede não atira
+        } else if (isBlablade) {
+            // Estratégia especial contra Blablade
+            turnGunRight(360); // Fica girando pra acompanhar o giro dele
+            fire(2); // Dá tiros frequentes pra quebrar o ciclo do giro
+            back(100); // Mantém distância pra evitar colisões
+        } else {
+            if (distancia < 50) {
+                fire(3); //se tiver perto atira 3 vezes (close-range massacre!)
+            } else if (distancia < 200) {
+                fire(2); //se tiver medium-range atira 2 vezes
+            } else {
+                fire(1); //se tiver longe atira uma vez
+            }
+
+            //estrategia para inimigos fracos
+            if (energiaInimigo < 20) {
+                //ta fraco? finaliza com estilo
+                fire(3);
+                turnRight(30);
+                ahead(50); //se aproxima pra garantir a vitoria
+            }
+        }
     }
 
-    // recebe tiro e faz munwalk (substituicao de liskov sei la doq - LSP)
+    //recebe tiro e faz munwalk
     @Override
     public void onHitByBullet(HitByBulletEvent e) {
         if (getEnergy() > 30) {
-            turnLeft(90); // munwalk pra confundir
-            ahead(50); // munwalk pra desviar
+            turnLeft(90); //munwalk pra confundir
+            ahead(50); //munwalk pra desviar
         } else {
-            // ta fraco? movimento mais radical
-            turnRight(180); // manda aquele giro inesperado
-            ahead(100); // foge com elegancia
+            //ta fraco? movimento mais radical
+            turnRight(180); //manda aquele giro inesperado
+            ahead(100); //foge com elegancia
         }
     }
 
-    // cheira parede (segregacao de interface - ISP)
+    //cheira parede
     @Override
     public void onHitWall(HitWallEvent e) {
+        //ajusta o comportamento pra evitar dano desnecessario
         if (getEnergy() > 50) {
-            back(50); // viu parede
-            turnRight(90); // sai pra nao ficar preso
+            back(50); //viu parede
+            turnRight(90); //sai pra nao ficar preso
         } else {
-            // energia baixa maior evasao
+            //energia baixa maior evasao
             back(100);
             turnLeft(90);
-        }
-    }
-}
-
-// interface para estrategias (inversao de dependencia - DIP)
-interface RobotStrategy {
-    void execute(AdvancedRobot robot);
-
-    default void onScannedRobot(AdvancedRobot robot, ScannedRobotEvent e, double distancia, double energiaInimigo) {
-        // Default: Faz nada
-    }
-}
-
-// estrategia agressiva (padrao de projeto estrategia)
-class AggressiveStrategy implements RobotStrategy {
-    @Override
-    public void execute(AdvancedRobot robot) {
-        robot.ahead(150); // avança mais pra pressão
-        robot.turnGunRight(360); // procura inimigos
-        robot.back(100); // recua pra enganar
-        robot.turnGunRight(360); // procura dnv
-    }
-}
-
-// estrategia contra CheiraParede
-class CheiraParedeStrategy implements RobotStrategy {
-    @Override
-    public void execute(AdvancedRobot robot) {
-        robot.fire(3); // forca maxima porque ele so cheira parede mesmo
-        robot.turnRight(90); // sai do caminho do cheirador
-        robot.ahead(200); // ganha distancia porque parede nao atira
-    }
-
-    @Override
-    public void onScannedRobot(AdvancedRobot robot, ScannedRobotEvent e, double distancia, double energiaInimigo) {
-        execute(robot);
-    }
-}
-
-// Estratégia contra Blablade
-class BlabladeStrategy implements RobotStrategy {
-    @Override
-    public void execute(AdvancedRobot robot) {
-        robot.turnGunRight(360); // fica girando pra acompanhar o giro dele
-        robot.fire(2); // da tiros frequentes pra quebrar o ciclo do giro
-        robot.back(100); // mantem distancia pra evitar colisoes
-    }
-
-    @Override
-    public void onScannedRobot(AdvancedRobot robot, ScannedRobotEvent e, double distancia, double energiaInimigo) {
-        execute(robot);
-    }
-}
-
-// Estratégia padrão
-class DefaultStrategy implements RobotStrategy {
-    @Override
-    public void onScannedRobot(AdvancedRobot robot, ScannedRobotEvent e, double distancia, double energiaInimigo) {
-        if (distancia < 50) {
-            robot.fire(3); // close-range massacre!
-        } else if (distancia < 200) {
-            robot.fire(2); // medium-range ataque
-        } else {
-            robot.fire(1); // longa distância atira uma vez
-        }
-
-        if (energiaInimigo < 20) {
-            robot.fire(3); // finaliza com estilo
-            robot.turnRight(30);
-            robot.ahead(50); // se aproxima pra garantir a vitoria
         }
     }
 }
